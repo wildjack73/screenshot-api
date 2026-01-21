@@ -1,34 +1,60 @@
 /**
  * RapidAPI Authentication Middleware
  * Validates requests coming from RapidAPI
+ *
+ * RapidAPI headers:
+ * - X-RapidAPI-Key: User's API key (required)
+ * - X-RapidAPI-Host: Your API's host on RapidAPI (required)
+ * - X-RapidAPI-User: User's RapidAPI username
+ * - X-RapidAPI-Subscription: Subscription level (BASIC, PRO, ULTRA, MEGA)
+ * - X-RapidAPI-Proxy-Secret: Optional secret to verify request comes from RapidAPI
  */
 
 const RAPIDAPI_PROXY_SECRET = process.env.RAPIDAPI_PROXY_SECRET;
+const RAPIDAPI_HOST = process.env.RAPIDAPI_HOST; // e.g., "screenshot-api.p.rapidapi.com"
 
 /**
  * Middleware to authenticate RapidAPI requests
- * RapidAPI sends these headers:
- * - X-RapidAPI-Proxy-Secret: Secret to verify request comes from RapidAPI
- * - X-RapidAPI-Key: User's subscription key
- * - X-RapidAPI-User: User's RapidAPI username
- * - X-RapidAPI-Subscription: Subscription level (BASIC, PRO, ULTRA, MEGA)
  */
 function validateRapidAPI(req, res, next) {
-  // Check if proxy secret is configured
-  if (!RAPIDAPI_PROXY_SECRET) {
-    console.error('RAPIDAPI_PROXY_SECRET not configured');
-    return res.status(500).json({
+  const rapidApiKey = req.headers['x-rapidapi-key'];
+  const rapidApiHost = req.headers['x-rapidapi-host'];
+  const proxySecret = req.headers['x-rapidapi-proxy-secret'];
+
+  // Check for required RapidAPI headers
+  if (!rapidApiKey) {
+    return res.status(401).json({
       success: false,
       error: {
-        code: 'CONFIG_ERROR',
-        message: 'API not properly configured'
+        code: 'UNAUTHORIZED',
+        message: 'Missing X-RapidAPI-Key header. Subscribe to this API on RapidAPI.'
       }
     });
   }
 
-  // Validate proxy secret (ensures request comes from RapidAPI)
-  const proxySecret = req.headers['x-rapidapi-proxy-secret'];
-  if (proxySecret !== RAPIDAPI_PROXY_SECRET) {
+  if (!rapidApiHost) {
+    return res.status(401).json({
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: 'Missing X-RapidAPI-Host header. Requests must come through RapidAPI.'
+      }
+    });
+  }
+
+  // Validate host matches (if configured)
+  if (RAPIDAPI_HOST && rapidApiHost !== RAPIDAPI_HOST) {
+    return res.status(403).json({
+      success: false,
+      error: {
+        code: 'FORBIDDEN',
+        message: 'Invalid X-RapidAPI-Host header.'
+      }
+    });
+  }
+
+  // Validate proxy secret if configured (extra security layer)
+  if (RAPIDAPI_PROXY_SECRET && proxySecret !== RAPIDAPI_PROXY_SECRET) {
     return res.status(403).json({
       success: false,
       error: {
@@ -40,8 +66,9 @@ function validateRapidAPI(req, res, next) {
 
   // Extract RapidAPI user info for logging/analytics
   req.rapidapi = {
-    key: req.headers['x-rapidapi-key'],
-    user: req.headers['x-rapidapi-user'],
+    key: rapidApiKey,
+    host: rapidApiHost,
+    user: req.headers['x-rapidapi-user'] || 'unknown',
     subscription: req.headers['x-rapidapi-subscription'] || 'BASIC'
   };
 
