@@ -13,10 +13,6 @@ RUN npm ci --omit=dev
 # Copy source code
 COPY src/ ./src/
 
-# Create non-root user for security
-RUN useradd -m appuser && chown -R appuser:appuser /app
-USER appuser
-
 # Expose port (Railway will set PORT env variable)
 EXPOSE 3000
 
