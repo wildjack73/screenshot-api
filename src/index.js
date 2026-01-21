@@ -43,8 +43,8 @@ app.get('/screenshot', async (req, res) => {
     res.set('Content-Type', 'image/png');
     res.send(screenshot);
   } catch (error) {
-    console.error('Screenshot capture failed:', error.message);
-    res.status(500).json({ error: 'Screenshot capture failed' });
+    console.error('Screenshot capture failed:', error.message, error.stack);
+    res.status(500).json({ error: 'Screenshot capture failed', details: error.message });
   }
 });
 
